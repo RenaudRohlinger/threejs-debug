@@ -1,0 +1,20 @@
+{
+  "extends": "@utsubo/config/typescript",
+  "compilerOptions": {
+    "outDir": "dist",
+    "target": "es6",
+    "module": "ESNext",
+    "lib": ["ESNext", "dom"],
+    "moduleResolution": "node",
+    "jsx": "react",
+    "allowJs": true,
+    "pretty": true,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "paths": {
+      "@utsubo/npm-template": ["./src"],
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src/**/*"]
+}
