@@ -29,6 +29,7 @@ import {
   addEnumsFromAPI,
   enumArrayToString,
   getBindingQueryEnumForBindPoint,
+  getDrawFunctionArgs,
   getUniformTypeInfo,
   glEnumToString,
   isArrayThatCanHaveBadValues,
@@ -152,6 +153,19 @@ export function augmentAPI(ctx, nameOfClass, options = {}) {
 
   const origGLErrorFn = options.origGLErrorFn || ctx.getError
   addEnumsFromAPI(ctx)
+
+  const postChecks = {
+    drawArrays: checkMaxDrawCallsAndZeroCount,
+    drawElements: checkMaxDrawCallsAndZeroCount,
+    drawArraysInstanced: checkMaxDrawCallsAndZeroCount,
+    drawElementsInstanced: checkMaxDrawCallsAndZeroCount,
+    drawArraysInstancedANGLE: checkMaxDrawCallsAndZeroCount,
+    drawElementsInstancedANGLE: checkMaxDrawCallsAndZeroCount,
+    drawRangeElements: checkMaxDrawCallsAndZeroCount,
+    getSupportedExtensions(ctx, funcName, args, result) {
+      result.push('GMAN_debug_helper')
+    },
+  }
 
   function createSharedState(ctx) {
     const sharedState = {
@@ -794,7 +808,6 @@ export function augmentAPI(ctx, nameOfClass, options = {}) {
       fnInfos.errorHelper = getUniformNameErrorMsg
     }
   }
-
   // Holds booleans for each GL error so after we get the error ourselves
   // we can still return it to the client app.
   const glErrorShadow = {}
@@ -807,6 +820,31 @@ export function augmentAPI(ctx, nameOfClass, options = {}) {
     }
     for (const key of [...Object.keys(sharedState)]) {
       delete sharedState[key]
+    }
+  }
+
+  function checkMaxDrawCallsAndZeroCount(gl, funcName, args) {
+    const { vertCount, instances } = getDrawFunctionArgs(funcName, args)
+    if (vertCount === 0) {
+      console.warn(
+        generateFunctionError(gl, funcName, args, `count for ${funcName} is 0!`)
+      )
+    }
+
+    if (instances === 0) {
+      console.warn(
+        generateFunctionError(
+          gl,
+          funcName,
+          args,
+          `instanceCount for ${funcName} is 0!`
+        )
+      )
+    }
+    // console.log('draw calls', config.maxDrawCalls)
+    --config.maxDrawCalls
+    if (config.maxDrawCalls === 0) {
+      removeChecks()
     }
   }
 
@@ -1357,6 +1395,8 @@ export function augmentAPI(ctx, nameOfClass, options = {}) {
   // Makes a function that calls a WebGL function and then calls getError.
   function makeErrorWrapper(ctx, funcName) {
     const origFn = ctx[funcName]
+    const postCheck = postChecks[funcName] || noop
+
     ctx[funcName] = function (...args) {
       checkArgs(ctx, funcName, args)
       if (sharedState.currentProgram && isDrawFunction(funcName)) {
@@ -1383,12 +1423,10 @@ export function augmentAPI(ctx, nameOfClass, options = {}) {
           }
         }
         reportFunctionError(ctx, funcName, args, msgs.join('\n'))
+      } else {
+        postCheck(ctx, funcName, args, result)
       }
       return result
-    }
-    const extraWrapperFn = extraWrappers[funcName]
-    if (extraWrapperFn) {
-      extraWrapperFn(ctx, funcName, origGLErrorFn)
     }
   }
 
@@ -1414,4 +1452,6 @@ export function augmentAPI(ctx, nameOfClass, options = {}) {
   }
 
   apis[nameOfClass.toLowerCase()] = { ctx, origFuncs }
+
+  return sharedState
 }

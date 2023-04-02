@@ -2,6 +2,7 @@ import { improveWebGLError } from './improveWebGLErrors'
 import { augmentAPI } from './webgl-lint/augment-api'
 
 let baseContext = null
+let api = null
 
 function wrapGetContext(CanvasElement) {
   const originalGetContext = CanvasElement.prototype.getContext
@@ -26,7 +27,7 @@ function wrapGetContext(CanvasElement) {
         makeDefaultTags: true,
         ignoreUniforms: [],
       }
-      augmentAPI(originalContext, type, config)
+      api = augmentAPI(originalContext, type, config)
     }
     return originalContext
   }
@@ -41,7 +42,7 @@ if (typeof OffscreenCanvas !== 'undefined') {
 }
 
 // Add an event listener to your canvas element
-function threejsDebug(scene, renderer) {
+function threejsDebug(scene, renderer, config) {
   if (!scene || !renderer) {
     console.error('Scene or renderer is missing.')
     return
@@ -65,9 +66,21 @@ function threejsDebug(scene, renderer) {
     // Call improveWebGLError with the scene and gl variables
     improveWebGLError(scene, renderer, event)
   })
+
+  if (config) {
+    if (!api) {
+      return
+    }
+    for (const [key, value] of Object.entries(config)) {
+      if (!(key in api.config)) {
+        throw new Error(`unknown configuration option: ${key}`)
+      }
+      api.config[key] = value
+    }
+  }
 }
 
-function webglDebug(canvas) {
+function webglDebug(canvas, config) {
   if (!canvas) {
     console.error('Canvas element not found.')
     return
@@ -90,6 +103,18 @@ function webglDebug(canvas) {
     // Call improveWebGLError with the scene and gl variables
     improveWebGLError(null, null, event)
   })
+
+  if (config) {
+    if (!api) {
+      return
+    }
+    for (const [key, value] of Object.entries(config)) {
+      if (!(key in api.config)) {
+        throw new Error(`unknown configuration option: ${key}`)
+      }
+      api.config[key] = value
+    }
+  }
 }
 
 export { threejsDebug, webglDebug }

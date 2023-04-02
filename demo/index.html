@@ -142,7 +142,7 @@
       import * as THREE from 'three'
       import WebGL from 'three/addons/capabilities/WebGL.js'
 
-      import { threejsDebug, webglDebug } from '../dist/index.mjs'
+      import { threejsDebug, webglDebug } from '../src'
 
       let camera, scene, renderer, clock
 
@@ -273,7 +273,9 @@
         renderer.setSize(window.innerWidth, window.innerHeight)
         container.appendChild(renderer.domElement)
 
-        threejsDebug(scene, renderer)
+        threejsDebug(scene, renderer, {
+          maxDrawCalls: 1000,
+        })
 
         window.addEventListener('resize', onWindowResize, false)
       }

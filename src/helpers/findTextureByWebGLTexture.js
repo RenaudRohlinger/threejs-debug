@@ -77,8 +77,8 @@ function findTextureByWebGLTexture(scene, renderer) {
 
           const isMatchingTexture = textureTargets.some(
             ({ target, paramName }) => {
-              //   gl.activeTexture(gl.TEXTURE0)
-              //   gl.bindTexture(target, textureProperties.__webglTexture)
+              gl.activeTexture(gl.TEXTURE0)
+              // gl.bindTexture(target, textureProperties.__webglTexture)
               return (
                 textureProperties.__webglTexture === gl.getParameter(paramName)
               )

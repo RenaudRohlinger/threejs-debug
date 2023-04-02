@@ -15,6 +15,9 @@ function improveWebGLError(scene, gl, { errors }) {
     obj = findObjectByWebGLProgram(scene, gl, shaderProgram)
     //   //     // Log bound 2D texture
     relatedTextures = findTextureByWebGLTexture(scene, gl)
+    if (!obj && relatedTextures) {
+      obj = relatedTextures.object
+    }
     //     const programInfoLog = ctx.getProgramInfoLog(shaderProgram)
   }
   console.group(
@@ -25,21 +28,7 @@ function improveWebGLError(scene, gl, { errors }) {
   )
 
   if (error) {
-    console.warn(
-      '%cError Details:',
-      'color: #f4511e; font-weight: bold;',
-      error
-    )
-  }
-
-  if (errorInfo) {
-    const errorMessage = `${errorInfo.url}:${errorInfo.lineNo}`
-
-    console.warn(
-      `%cError Source: ${errorInfo.funcName.split('.')[1]}:`,
-      'color: #f4511e; font-weight: bold;',
-      errorMessage
-    )
+    console.log('%cError Details:', 'color: #f4511e; font-weight: bold;', error)
   }
 
   if (obj) {
@@ -84,6 +73,15 @@ function improveWebGLError(scene, gl, { errors }) {
   }
 
   // Add any other context information you want to log
+  if (errorInfo) {
+    const errorMessage = `${errorInfo.url}:${errorInfo.lineNo}`
+
+    console.warn(
+      `%cError Source: ${errorInfo.funcName.split('.')[1]}:`,
+      'color: #f4511e; font-weight: bold;',
+      errorMessage
+    )
+  }
 
   console.groupEnd()
   //   }
