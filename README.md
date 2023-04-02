@@ -1,3 +1,3 @@
-# @utsuboco/npm-template
+# threejs-debug
 
-A template repository for creating an NPM package.
+TODO

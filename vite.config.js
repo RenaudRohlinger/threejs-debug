@@ -3,8 +3,8 @@ import { defineConfig } from 'vite'
 import * as path from 'node:path'
 
 // Filters out external dependencies from bundling unless specified
-const inline: string[] = []
-const external = (id: string): boolean =>
+const inline = []
+const external = (id) =>
   !id.startsWith('.') &&
   !id.startsWith('@/') &&
   !path.isAbsolute(id) &&
@@ -20,7 +20,7 @@ export default defineConfig({
   },
   build: {
     lib: {
-      entry: 'src/index.ts',
+      entry: 'src/index.js',
     },
     rollupOptions: {
       external,
