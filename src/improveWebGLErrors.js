@@ -46,7 +46,7 @@ function improveWebGLError(scene, gl, { errors }) {
 
   // Log bound framebuffer
   const framebuffer = ctx.getParameter(ctx.FRAMEBUFFER_BINDING)
-  if (framebuffer) {
+  if (framebuffer && getLastRenderTarget()) {
     console.log(
       '%cRenderer by Framebuffer:',
       'color: #8ab4f9; font-weight: bold;',

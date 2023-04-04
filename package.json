@@ -1,6 +1,6 @@
 {
-  "name": "threejs-debug",
-  "version": "0.0.0-beta.8",
+  "name": "@utsubo/threejs-debug",
+  "version": "0.0.1",
   "author": "Renaud ROHLINGER (https://github.com/RenaudRohlinger)",
   "description": "Threejs debug",
   "keywords": [],
