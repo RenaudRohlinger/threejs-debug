@@ -1,4 +1,4 @@
-import { improveWebGLError } from './improveWebGLErrors'
+import { improveWebGLError, setLastRenderTarget } from './improveWebGLErrors'
 import { augmentAPI } from './webgl-lint/augment-api'
 
 let baseContext = null
@@ -60,6 +60,21 @@ function threejsDebug(scene, renderer, config) {
   if (!baseContext) {
     console.error('Unable to get WebGL context from renderer.')
     return
+  }
+
+  // Save the original getRenderTarget method for later use
+  const originalGetRenderTarget = renderer.getRenderTarget.bind(renderer)
+
+  // Override the getRendererTarget method with a custom implementation
+  renderer.getRenderTarget = function () {
+    // Call the original getRenderTarget method and store its result
+    const result = originalGetRenderTarget()
+
+    // Update the last current render target
+    setLastRenderTarget(result)
+
+    // Return the result from the original method
+    return result
   }
 
   canvas.addEventListener('webglcontexterror', (event) => {

@@ -16,138 +16,137 @@
         overflow: hidden;
       }
     </style>
-  </head>
 
-  <body>
-    <div id="container"></div>
-
-    <script id="vertexShader1" type="x-shader/x-vertex">
-
-      uniform ViewData {
-      	mat4 projectionMatrix;
-      	mat4 viewMatrix;
-      };
-
-      uniform mat4 modelMatrix;
-      uniform mat3 normalMatrix;
-
+    <!-- Write to G-Buffer -->
+    <script id="gbuffer-vert" type="x-shader/x-vertex">
       in vec3 position;
       in vec3 normal;
+      in vec2 uv;
 
-      out vec3 vPositionEye;
-      out vec3 vNormalEye;
+      out vec3 vNormal;
+      out vec2 vUv;
 
-      void main()	{
+      uniform mat4 modelViewMatrix;
+      uniform mat4 projectionMatrix;
+      uniform mat3 normalMatrix;
 
-      	vec4 vertexPositionEye = viewMatrix * modelMatrix * vec4( position, 1.0 );
+      void main() {
 
-      	vPositionEye = vertexPositionEye.xyz;
-      	vNormalEye = normalMatrix * normal;
+      	vUv = uv;
 
-      	gl_Position = projectionMatrix * vertexPositionEye;
+      	// get smooth normals
+      	vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
+
+      	vec3 transformedNormal = normalMatrix * normal;
+      	vNormal = normalize( transformedNormal );
+
+      	gl_Position = projectionMatrix * mvPosition;
 
       }
     </script>
-
-    <script id="fragmentShader1" type="x-shader/x-fragment">
-
+    <script id="gbuffer-frag" type="x-shader/x-fragment">
       precision highp float;
+      precision highp int;
 
-      uniform LightingData {
-      	vec3 position;
-      	vec3 ambientColor;
-      	vec3 diffuseColor;
-      	vec3 specularColor;
-      	float shininess;
-      } Light;
+      layout(location = 0) out vec4 gColor;
+      layout(location = 1) out vec4 gNormal;
+      uniform sampler2D tDiffuse;
+      uniform vec2 repeat;
 
-      uniform vec3 color;
+      in vec3 vNormal;
+      in vec2 vUv;
 
-      in vec3 vPositionEye;
-      in vec3 vNormalEye;
+      void main() {
 
-      out vec4 fragColor;
+      	// write color to G-Buffer
+      	gColor = texture( tDiffuse, vUv * repeat );
 
-      void main()	{
-
-      	// a very basic lighting equation (Phong reflection model) for testing
-
-      	vec3 l = normalize( Light.position - vPositionEye );
-      	vec3 n = normalize( vNormalEye );
-      	vec3 e = - normalize( vPositionEye );
-      	vec3 r = normalize( reflect( - l, n ) );
-
-      	float diffuseLightWeighting = max( dot( n, l ), 0.0 );
-      	float specularLightWeighting = max( dot( r, e ), 0.0 );
-
-      	specularLightWeighting = pow( specularLightWeighting, Light.shininess );
-
-      	vec3 lightWeighting = Light.ambientColor +
-      		Light.diffuseColor * diffuseLightWeighting +
-      		Light.specularColor * specularLightWeighting;
-
-      	fragColor = vec4( color.rgb * lightWeighting.rgb, 1.0 );
-
+      	#ifdef USE_NORMAL
+      	// write normals to G-Buffer
+      	gNormal = vec4( normalize( vNormal ), 0.0 );
+      	#else
+      	gNormal = vec4(0.);
+      	#endif
       }
     </script>
 
-    <script id="vertexShader2" type="x-shader/x-vertex">
-
-      uniform ViewData {
-      	mat4 projectionMatrix;
-      	mat4 viewMatrix;
-      };
-
-      uniform mat4 modelMatrix;
-
+    <!-- Read G-Buffer and render to screen -->
+    <script id="render-vert" type="x-shader/x-vertex">
       in vec3 position;
       in vec2 uv;
 
       out vec2 vUv;
 
-      void main()	{
+      uniform mat4 modelViewMatrix;
+      uniform mat4 projectionMatrix;
+
+      void main() {
 
       	vUv = uv;
-
-      	gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4( position, 1.0 );
+      	gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
 
       }
     </script>
-
-    <script id="fragmentShader2" type="x-shader/x-fragment">
-
+    <script id="render-frag" type="x-shader/x-fragment">
       precision highp float;
+      precision highp int;
 
-      uniform highp sampler2DArray diffuseMap;
+      layout(location = 0) out vec4 pc_FragColor;
 
       in vec2 vUv;
 
-      out vec4 fragColor;
+      uniform highp sampler2DArray tDiffuse;
+      uniform sampler2D tNormal;
 
-      void main()	{
+      void main() {
 
-      	fragColor = texture( diffuseMap, vec3(vUv, 0.) );
+      	vec3 diffuse = texture( tDiffuse, vec3(vUv, 0.) ).rgb;
+      	vec3 normal = texture( tNormal, vUv ).rgb;
+
+      	pc_FragColor.rgb = mix( diffuse, normal, step( 0.5, vUv.x ) );
+      	pc_FragColor.a = 1.0;
 
       }
     </script>
+  </head>
+  <body>
+    <div id="info">
+      <a href="https://threejs.org" target="_blank">threejs</a> webgl - Multiple
+      RenderTargets
+    </div>
 
     <!-- Import maps polyfill -->
     <!-- Remove this when import maps will be widely supported -->
     <script
       async
-      src="https://unpkg.com/es-module-shims@1.3.6/dist/es-module-shims.js"
+      src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"
     ></script>
 
     <script type="module">
       import * as THREE from 'three'
       import WebGL from 'three/addons/capabilities/WebGL.js'
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
+      import { GUI } from 'three/addons/libs/lil-gui.module.min.js'
 
       import { threejsDebug, webglDebug } from '../src'
 
-      let camera, scene, renderer, clock
+      let camera, scene, renderer, controls
+      let renderTarget
+      let postScene, postCamera
+
+      const parameters = {
+        samples: 4,
+        wireframe: false,
+        normal: true,
+      }
+
+      const gui = new GUI()
+      gui.add(parameters, 'samples', 0, 4).step(1)
+      gui.add(parameters, 'wireframe')
+      gui.add(parameters, 'normal')
+      gui.onChange(render)
 
       init()
-      animate()
 
       function init() {
         if (WebGL.isWebGL2Available() === false) {
@@ -155,129 +154,99 @@
           return
         }
 
-        const container = document.getElementById('container')
-
-        camera = new THREE.PerspectiveCamera(
-          45,
-          window.innerWidth / window.innerHeight,
-          0.1,
-          100
-        )
-        camera.position.set(0, 0, 25)
-
-        scene = new THREE.Scene()
-        camera.lookAt(scene.position)
-
-        clock = new THREE.Clock()
-
-        // geometry
-
-        const geometry1 = new THREE.TetrahedronGeometry()
-        const geometry2 = new THREE.BoxGeometry()
-
-        // texture
-
-        const texture = new THREE.TextureLoader().load('./crate.gif')
-
-        // uniforms groups
-
-        // Camera and lighting related data are perfect examples of using UBOs since you have to store these
-        // data just once. They can be shared across all shader programs.
-
-        const cameraUniformsGroup = new THREE.UniformsGroup()
-        cameraUniformsGroup.setName('ViewData')
-        cameraUniformsGroup.add(new THREE.Uniform(camera.projectionMatrix)) // projection matrix
-        cameraUniformsGroup.add(new THREE.Uniform(camera.matrixWorldInverse)) // view matrix
-
-        const lightingUniformsGroup = new THREE.UniformsGroup()
-        lightingUniformsGroup.setName('LightingData')
-        lightingUniformsGroup.add(
-          new THREE.Uniform(new THREE.Vector3(0, 0, 10))
-        ) // light position
-        lightingUniformsGroup.add(new THREE.Uniform(new THREE.Color(0x333333))) // ambient color
-        lightingUniformsGroup.add(new THREE.Uniform(new THREE.Color(0xaaaaaa))) // diffuse color
-        lightingUniformsGroup.add(new THREE.Uniform(new THREE.Color(0xcccccc))) // specular color
-        lightingUniformsGroup.add(new THREE.Uniform(64)) // shininess
-
-        // materials
-
-        const material1 = new THREE.RawShaderMaterial({
-          uniforms: {
-            modelMatrix: { value: null },
-            normalMatrix: { value: null },
-            color: { value: null },
-          },
-          vertexShader: document.getElementById('vertexShader1').textContent,
-          fragmentShader:
-            document.getElementById('fragmentShader1').textContent,
-          glslVersion: THREE.GLSL3,
-        })
-
-        const material2 = new THREE.RawShaderMaterial({
-          uniforms: {
-            modelMatrix: { value: null },
-            diffuseMap: { value: null },
-          },
-          vertexShader: document.getElementById('vertexShader2').textContent,
-          fragmentShader:
-            document.getElementById('fragmentShader2').textContent,
-          glslVersion: THREE.GLSL3,
-        })
-
-        // meshes
-
-        for (let i = 0; i < 200; i++) {
-          let mesh
-
-          if (i % 2 === 0) {
-            mesh = new THREE.Mesh(geometry1, material1.clone())
-
-            mesh.material.uniformsGroups = [
-              cameraUniformsGroup,
-              lightingUniformsGroup,
-            ]
-            mesh.material.uniforms.modelMatrix.value = mesh.matrixWorld
-            mesh.material.uniforms.normalMatrix.value = mesh.normalMatrix
-            mesh.material.uniforms.color.value = new THREE.Color(
-              0xffffff * Math.random()
-            )
-          } else {
-            mesh = new THREE.Mesh(geometry2, material2.clone())
-
-            mesh.material.uniformsGroups = [cameraUniformsGroup]
-            mesh.material.uniforms.modelMatrix.value = mesh.matrixWorld
-            mesh.material.uniforms.diffuseMap.value = texture
-          }
-
-          scene.add(mesh)
-
-          const s = 1 + Math.random() * 0.5
-
-          mesh.scale.x = s
-          mesh.scale.y = s
-          mesh.scale.z = s
-
-          mesh.rotation.x = Math.random() * Math.PI
-          mesh.rotation.y = Math.random() * Math.PI
-          mesh.rotation.z = Math.random() * Math.PI
-
-          mesh.position.x = Math.random() * 40 - 20
-          mesh.position.y = Math.random() * 40 - 20
-          mesh.position.z = Math.random() * 20 - 10
-        }
-
-        //
-
-        renderer = new THREE.WebGLRenderer({ antialias: true })
+        renderer = new THREE.WebGLRenderer()
         renderer.setPixelRatio(window.devicePixelRatio)
         renderer.setSize(window.innerWidth, window.innerHeight)
-        container.appendChild(renderer.domElement)
+        document.body.appendChild(renderer.domElement)
 
-        threejsDebug(scene, renderer, {
-          maxDrawCalls: 1000,
-        })
+        // Create a multi render target with Float buffers
 
-        window.addEventListener('resize', onWindowResize, false)
+        renderTarget = new THREE.WebGLMultipleRenderTargets(
+          window.innerWidth * window.devicePixelRatio,
+          window.innerHeight * window.devicePixelRatio,
+          2
+        )
+
+        for (let i = 0, il = renderTarget.texture.length; i < il; i++) {
+          renderTarget.texture[i].minFilter = THREE.NearestFilter
+          renderTarget.texture[i].magFilter = THREE.NearestFilter
+        }
+
+        // Name our G-Buffer attachments for debugging
+
+        renderTarget.texture[0].name = 'diffuse'
+        renderTarget.texture[1].name = 'normal'
+
+        // Scene setup
+
+        scene = new THREE.Scene()
+        scene.background = new THREE.Color(0x222222)
+
+        threejsDebug(scene, renderer)
+        camera = new THREE.PerspectiveCamera(
+          70,
+          window.innerWidth / window.innerHeight,
+          0.1,
+          50
+        )
+        camera.position.z = 4
+
+        const loader = new THREE.TextureLoader()
+
+        const diffuse = loader.load('crate.gif', render)
+        diffuse.wrapS = THREE.RepeatWrapping
+        diffuse.wrapT = THREE.RepeatWrapping
+
+        scene.add(
+          new THREE.Mesh(
+            new THREE.TorusKnotGeometry(1, 0.3, 128, 32),
+            new THREE.RawShaderMaterial({
+              vertexShader: document
+                .querySelector('#gbuffer-vert')
+                .textContent.trim(),
+              fragmentShader: document
+                .querySelector('#gbuffer-frag')
+                .textContent.trim(),
+              uniforms: {
+                tDiffuse: { value: diffuse },
+                repeat: { value: new THREE.Vector2(5, 0.5) },
+              },
+              glslVersion: THREE.GLSL3,
+            })
+          )
+        )
+
+        // PostProcessing setup
+
+        postScene = new THREE.Scene()
+        postCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1)
+
+        postScene.add(
+          new THREE.Mesh(
+            new THREE.PlaneGeometry(2, 2),
+            new THREE.RawShaderMaterial({
+              vertexShader: document
+                .querySelector('#render-vert')
+                .textContent.trim(),
+              fragmentShader: document
+                .querySelector('#render-frag')
+                .textContent.trim(),
+              uniforms: {
+                tDiffuse: { value: renderTarget.texture[0] },
+                tNormal: { value: renderTarget.texture[1] },
+              },
+              glslVersion: THREE.GLSL3,
+            })
+          )
+        )
+
+        // Controls
+
+        controls = new OrbitControls(camera, renderer.domElement)
+        controls.addEventListener('change', render)
+        //controls.enableZoom = false;
+
+        window.addEventListener('resize', onWindowResize)
       }
 
       function onWindowResize() {
@@ -285,23 +254,36 @@
         camera.updateProjectionMatrix()
 
         renderer.setSize(window.innerWidth, window.innerHeight)
+
+        const dpr = renderer.getPixelRatio()
+        renderTarget.setSize(window.innerWidth * dpr, window.innerHeight * dpr)
+
+        render()
       }
 
-      //
-
-      function animate() {
-        requestAnimationFrame(animate)
-
-        const delta = clock.getDelta()
-
+      function render() {
+        renderTarget.samples = parameters.samples
+        // renderer.globalDefines = {
+        //   USE_NORMAL: parameters.normal,
+        // }
+        scene.children[0].material.defines = {
+          USE_NORMAL: parameters.normal,
+        }
+        console.log(scene.children[0].material)
+        scene.children[0].material.version++
         scene.traverse(function (child) {
-          if (child.isMesh) {
-            child.rotation.x += delta * 0.5
-            child.rotation.y += delta * 0.3
+          if (child.material !== undefined) {
+            child.material.wireframe = parameters.wireframe
           }
         })
 
+        // render scene into target
+        renderer.setRenderTarget(renderTarget)
         renderer.render(scene, camera)
+
+        // render post FX
+        renderer.setRenderTarget(null)
+        renderer.render(postScene, postCamera)
       }
     </script>
   </body>

@@ -1,6 +1,15 @@
 import { findObjectByWebGLProgram } from './helpers/findObjectByWebGLProgram'
 import { findTextureByWebGLTexture } from './helpers/findTextureByWebGLTexture'
 
+let lastCurrentRenderTarget = null
+function getLastRenderTarget() {
+  return lastCurrentRenderTarget
+}
+
+export function setLastRenderTarget(value) {
+  lastCurrentRenderTarget = value
+}
+
 function improveWebGLError(scene, gl, { errors }) {
   const { errorInfo, error, functionName, errorName } = errors
 
@@ -39,9 +48,9 @@ function improveWebGLError(scene, gl, { errors }) {
   const framebuffer = ctx.getParameter(ctx.FRAMEBUFFER_BINDING)
   if (framebuffer) {
     console.log(
-      '%cBound Framebuffer:',
-      'color: #fb8c00; font-weight: bold;',
-      framebuffer
+      '%cRenderer by Framebuffer:',
+      'color: #8ab4f9; font-weight: bold;',
+      getLastRenderTarget()
     )
   }
 
@@ -50,7 +59,7 @@ function improveWebGLError(scene, gl, { errors }) {
   if (renderbuffer) {
     console.log(
       '%cBound Renderbuffer:',
-      'color: #fb8c00; font-weight: bold;',
+      'color: #8ab4f9; font-weight: bold;',
       renderbuffer
     )
   }
@@ -58,7 +67,7 @@ function improveWebGLError(scene, gl, { errors }) {
   if (relatedTextures) {
     const { value, object, material, property } = relatedTextures
     console.groupCollapsed(
-      `%cProblematic Texture: ${value.name} (${value.uuid})`,
+      `%cProblematic Texture: ${value.property}`,
       'color: white; background: #6d4c41; font-family: "Courier New", monospace; padding: 2px 5px; border-radius: 4px; font-weight: bold;'
     )
     console.log(
@@ -77,7 +86,9 @@ function improveWebGLError(scene, gl, { errors }) {
     const errorMessage = `${errorInfo.url}:${errorInfo.lineNo}`
 
     console.warn(
-      `%cError Source: ${errorInfo.funcName.split('.')[1]}:`,
+      `%cError Source: ${
+        errorInfo.funcName.split('.')[1] || errorInfo.funcName
+      }:`,
       'color: #f4511e; font-weight: bold;',
       errorMessage
     )
