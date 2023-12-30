@@ -1,4 +1,3 @@
-import config from '@utsubo/config/vite'
 import { defineConfig } from 'vite'
 import * as path from 'node:path'
 
@@ -14,13 +13,13 @@ export default defineConfig({
   root: process.argv[2] ? undefined : 'demo',
   resolve: {
     alias: {
-      '@utsubo/npm-template': '@',
       '@': path.resolve(__dirname, './src'),
     },
   },
   build: {
     lib: {
       entry: 'src/index.js',
+      name: 'threejs-debug'
     },
     rollupOptions: {
       external,
@@ -31,5 +30,4 @@ export default defineConfig({
       external,
     },
   },
-  plugins: [config()],
 })

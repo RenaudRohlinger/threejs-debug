@@ -148,29 +148,28 @@
 
       init()
 
-      function init() {
-        if (WebGL.isWebGL2Available() === false) {
-          document.body.appendChild(WebGL.getWebGL2ErrorMessage())
-          return
-        }
+      async function init() {
 
         renderer = new THREE.WebGLRenderer()
         renderer.setPixelRatio(window.devicePixelRatio)
         renderer.setSize(window.innerWidth, window.innerHeight)
         document.body.appendChild(renderer.domElement)
 
+        scene = new THREE.Scene()
+        threejsDebug(scene, renderer, {
+          maxDrawCalls: 10000,
+        })
+
         // Create a multi render target with Float buffers
 
         renderTarget = new THREE.WebGLMultipleRenderTargets(
           window.innerWidth * window.devicePixelRatio,
           window.innerHeight * window.devicePixelRatio,
-          2
+          2, {
+            minFilter: THREE.NearestFilter,
+            magFilter: THREE.NearestFilter,
+          }
         )
-
-        for (let i = 0, il = renderTarget.texture.length; i < il; i++) {
-          renderTarget.texture[i].minFilter = THREE.NearestFilter
-          renderTarget.texture[i].magFilter = THREE.NearestFilter
-        }
 
         // Name our G-Buffer attachments for debugging
 
@@ -179,10 +178,8 @@
 
         // Scene setup
 
-        scene = new THREE.Scene()
         scene.background = new THREE.Color(0x222222)
 
-        threejsDebug(scene, renderer)
         camera = new THREE.PerspectiveCamera(
           70,
           window.innerWidth / window.innerHeight,
@@ -193,7 +190,7 @@
 
         const loader = new THREE.TextureLoader()
 
-        const diffuse = loader.load('crate.gif', render)
+        const diffuse = await loader.loadAsync( 'crate.gif' );
         diffuse.wrapS = THREE.RepeatWrapping
         diffuse.wrapT = THREE.RepeatWrapping
 
@@ -208,7 +205,7 @@
                 .querySelector('#gbuffer-frag')
                 .textContent.trim(),
               uniforms: {
-                tDiffuse: { value: diffuse },
+                tDiffuse: { value: null },
                 repeat: { value: new THREE.Vector2(5, 0.5) },
               },
               glslVersion: THREE.GLSL3,
@@ -247,6 +244,12 @@
         //controls.enableZoom = false;
 
         window.addEventListener('resize', onWindowResize)
+
+        render()
+
+        setTimeout(() => {
+          render() // trigger tool
+        });
       }
 
       function onWindowResize() {
@@ -269,7 +272,6 @@
         scene.children[0].material.defines = {
           USE_NORMAL: parameters.normal,
         }
-        console.log(scene.children[0].material)
         scene.children[0].material.version++
         scene.traverse(function (child) {
           if (child.material !== undefined) {

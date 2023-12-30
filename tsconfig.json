@@ -1,5 +1,4 @@
 {
-  "extends": "@utsubo/config/typescript",
   "compilerOptions": {
     "outDir": "dist",
     "target": "es6",
@@ -12,7 +11,6 @@
     "declaration": true,
     "emitDeclarationOnly": true,
     "paths": {
-      "@utsubo/npm-template": ["./src"],
       "@/*": ["./src/*"]
     }
   },

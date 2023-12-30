@@ -1,4 +1,5 @@
 # threejs-debug
+- Based on [webgl-lint](https://github.com/greggman/webgl-lint)
 
 ### Configuration
 
@@ -125,4 +126,3 @@ for special needs.
   lots of objects and you want to make sure tags are not leaking memory
   since tags are never deleted automatically. (See "naming).
 
-TODO

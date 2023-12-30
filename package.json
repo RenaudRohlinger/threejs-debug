@@ -1,11 +1,11 @@
 {
-  "name": "@utsubo/threejs-debug",
+  "name": "threejs-debug",
   "version": "0.0.1",
   "author": "Renaud ROHLINGER (https://github.com/RenaudRohlinger)",
   "description": "Threejs debug",
   "keywords": [],
-  "homepage": "https://github.com/utsuboco/threejs-debug",
-  "repository": "https://github.com/utsuboco/threejs-debug",
+  "homepage": "https://github.com/RenaudRohlinger/threejs-debug",
+  "repository": "https://github.com/RenaudRohlinger/threejs-debug",
   "license": "UNLICENSED",
   "files": [
     "dist"
@@ -20,18 +20,16 @@
   },
   "sideEffects": false,
   "devDependencies": {
-    "@types/node": "^18.13.0",
-    "@utsubo/config": "^0.0.24",
-    "eslint": "^8.34.0",
-    "prettier": "^2.8.4",
-    "three": "^0.151.2",
+    "@types/node": "^18.19.4",
+    "eslint": "^8.56.0",
+    "prettier": "^2.8.8",
+    "three": "^0.151.3",
     "typescript": "^4.9.5",
-    "vite": "^4.1.1"
+    "vite": "^4.5.1"
   },
   "scripts": {
     "dev": "vite",
     "build": "vite build && tsc",
     "lint": "eslint . && prettier . --check"
-  },
-  "prettier": "@utsubo/config/prettier"
+  }
 }
