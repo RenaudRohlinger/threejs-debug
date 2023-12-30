@@ -1,6 +1,24 @@
 # threejs-debug
 - Based on [webgl-lint](https://github.com/greggman/webgl-lint)
 
+### Installation:
+`npm i threejs-debug`
+
+Or
+
+`import { threejsDebug } from 'https://cdn.jsdelivr.net/npm/threejs-debug@0.0.1/dist/threejs-debug.mjs'`
+
+### Usage:
+```js
+import { threejsDebug } from 'threejs-debug';
+
+threejsDebug( scene, renderer, {
+    maxDrawCalls: 10000,
+} )
+```
+
+
+
 ### Configuration
 
 You don't need to configure anything to use in general but there are some settings
